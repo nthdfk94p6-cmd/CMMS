@@ -721,7 +721,7 @@ tbody tr:hover td{background:var(--surface)}
 // KONFIGURACJA SUPABASE
 // Wpisz swoje klucze z supabase.com → Settings → API
 // ══════════════════════════════════
-const SUPABASE_URL = 'TWOJ_SUPABASE_URL';
+const SUPABASE_URL = "DEMO";
 const SUPABASE_ANON_KEY = 'TWOJ_SUPABASE_ANON_KEY';
 
 // Klucz AI (Anthropic) — opcjonalnie, jeśli masz
@@ -755,33 +755,41 @@ function toast(msg) {
 }
 
 // ── AUTH ──
-async function doLogin() {
-  const email = document.getElementById('email-input').value.trim();
+function doLogin() {
+  const email = document.getElementById('email-input').value.trim().toLowerCase();
   const pass = document.getElementById('pass-input').value;
   const btn = document.getElementById('login-btn');
-  const err = document.getElementById('login-error');
-  if (!email || !pass) { showError('Podaj email i hasło'); return; }
-  btn.disabled = true; btn.textContent = 'Logowanie...';
-  err.classList.add('hide');
 
-  // Tryb demo — jeśli nie masz Supabase skonfigurowanego
-  if (SUPABASE_URL === 'TWOJ_SUPABASE_URL') {
-    await new Promise(r => setTimeout(r, 800));
-    const demoUsers = {
-      'pracownik@firma.pl': { name: 'Jan Kowalski', role: 'worker', initials: 'JK', color: '#dbeafe', tc: '#1d4ed8' },
-      'kierownik@firma.pl': { name: 'Anna Nowak', role: 'manager', initials: 'AN', color: '#ede9fe', tc: '#6d28d9' },
-    };
-    const demo = demoUsers[email];
-    if (demo && pass === 'demo123') {
+  document.getElementById('login-error').classList.add('hide');
+
+  const DEMO_USERS = {
+    'pracownik@firma.pl':  { name: 'Jan Kowalski', role: 'worker',  initials: 'JK', color: '#dbeafe', tc: '#1d4ed8' },
+    'kierownik@firma.pl':  { name: 'Anna Nowak',   role: 'manager', initials: 'AN', color: '#ede9fe', tc: '#6d28d9' },
+  };
+  const DEMO_PASS = 'demo123';
+
+  // TRYB DEMO
+  if (!email) { showError('Wpisz adres email'); return; }
+  if (!pass)  { showError('Wpisz hasło'); return; }
+
+  const demo = DEMO_USERS[email];
+  if (demo) {
+    if (pass === DEMO_PASS) {
       currentUser = { email, ...demo };
       currentRole = demo.role;
       enterApp();
     } else {
-      showError('Tryb demo: użyj pracownik@firma.pl lub kierownik@firma.pl, hasło: demo123');
+      showError('Złe hasło. Hasło demo: demo123');
       btn.disabled = false; btn.textContent = 'Zaloguj się';
     }
     return;
   }
+
+  // Nieznany email w trybie demo
+  showError('Konto demo:\n pracownik@firma.pl\n kierownik@firma.pl\nHasło: demo123');
+  btn.disabled = false; btn.textContent = 'Zaloguj się';
+
+  if (false) { // Supabase - odblokuj gdy skonfigurujesz
 
   // Prawdziwe Supabase
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
@@ -802,6 +810,7 @@ async function doLogin() {
   };
   currentRole = currentUser.role;
   enterApp();
+  } // koniec if(false)
 }
 
 function showError(msg) {
