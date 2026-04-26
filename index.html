@@ -755,7 +755,7 @@ function toast(msg) {
 }
 
 // ── AUTH ──
-function doLogin() {
+async function doLogin() {
   const email = document.getElementById('email-input').value.trim().toLowerCase();
   const pass = document.getElementById('pass-input').value;
   const btn = document.getElementById('login-btn');
