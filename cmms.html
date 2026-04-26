@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MaintenanceOS — System Utrzymania Ruchu</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & BASE ── */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.5}
+
+/* ── THEME ── */
+:root{
+  --ink:#0e0f11;--ink2:#4a4d54;--ink3:#9b9ea6;
+  --surface:#f7f7f5;--white:#ffffff;
+  --border:rgba(14,15,17,0.1);--border2:rgba(14,15,17,0.06);
+  --accent:#1a56db;--accent-bg:#eef3fd;--accent-text:#1e40af;
+  --danger:#c0392b;--danger-bg:#fdf1f0;--danger-text:#991b1b;
+  --success:#1a7a4a;--success-bg:#edf7f2;--success-text:#166534;
+  --warn:#8a5a00;--warn-bg:#fdf5e6;--warn-text:#92400e;
+  --radius:10px;--radius-lg:16px;
+}
+
+/* ── UTILS ── */
+.hide{display:none!important}
+.mono{font-family:'DM Mono',monospace}
+
+/* ══════════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════════ */
+#login-screen{
+  min-height:100vh;background:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.login-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+.login-glow{
+  position:absolute;width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle,rgba(26,86,219,0.22) 0%,transparent 70%);
+  top:-200px;right:-150px;pointer-events:none;
+}
+.login-glow2{
+  position:absolute;width:400px;height:400px;border-radius:50%;
+  background:radial-gradient(circle,rgba(109,40,217,0.12) 0%,transparent 70%);
+  bottom:-100px;left:-100px;pointer-events:none;
+}
+.login-card{
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--radius-lg);
+  padding:2.5rem;width:380px;
+  position:relative;z-index:1;
+  backdrop-filter:blur(12px);
+}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:2rem}
+.login-logo-icon{
+  width:38px;height:38px;border-radius:10px;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.login-logo-icon svg{width:20px;height:20px}
+.login-logo-name{font-size:15px;font-weight:500;color:#fff;letter-spacing:-0.01em}
+.login-logo-sub{font-size:12px;color:rgba(255,255,255,0.38);margin-top:1px}
+.login-heading{font-size:24px;font-weight:300;color:#fff;letter-spacing:-0.025em;margin-bottom:4px}
+.login-sub{font-size:13px;color:rgba(255,255,255,0.42);margin-bottom:1.75rem}
+.fl{display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
+.fl label{font-size:12px;color:rgba(255,255,255,0.48)}
+.fl input{
+  padding:10px 14px;font-size:14px;font-family:'DM Sans',sans-serif;
+  background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius:8px;color:#fff;outline:none;
+  transition:border-color 0.15s;
+}
+.fl input:focus{border-color:rgba(255,255,255,0.3)}
+.fl input::placeholder{color:rgba(255,255,255,0.22)}
+#login-btn{
+  width:100%;padding:11px;font-size:14px;font-weight:500;
+  background:var(--accent);color:#fff;border:none;
+  border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;
+  margin-top:6px;letter-spacing:-0.01em;transition:opacity 0.15s;
+}
+#login-btn:hover{opacity:0.9}
+#login-btn:disabled{opacity:0.5;cursor:not-allowed}
+.login-forgot{
+  font-size:12px;color:rgba(255,255,255,0.32);text-align:center;
+  margin-top:14px;cursor:pointer;background:none;border:none;
+  font-family:'DM Sans',sans-serif;width:100%;
+}
+.login-forgot:hover{color:rgba(255,255,255,0.55)}
+#login-error{
+  font-size:12px;color:#f87171;margin-top:10px;
+  padding:8px 12px;background:rgba(239,68,68,0.12);
+  border-radius:7px;border:1px solid rgba(239,68,68,0.2);
+}
+
+/* ══════════════════════════════════
+   APP SHELL
+══════════════════════════════════ */
+#app{display:flex;flex-direction:column;min-height:100vh;background:var(--surface)}
+
+/* TOPBAR */
+.topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:0 20px;height:52px;
+  background:var(--white);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;flex-shrink:0;
+}
+.tb-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.tb-icon{
+  width:28px;height:28px;border-radius:7px;background:var(--ink);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.tb-icon svg{width:14px;height:14px}
+.tb-name{font-size:14px;font-weight:500;color:var(--ink);letter-spacing:-0.01em}
+.tb-div{width:1px;height:18px;background:var(--border);margin:0 4px}
+.tb-location{font-size:12px;color:var(--ink3)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.user-chip{
+  display:flex;align-items:center;gap:7px;
+  padding:4px 10px 4px 4px;
+  border:1px solid var(--border);border-radius:99px;
+  cursor:default;
+}
+.ua{
+  width:26px;height:26px;border-radius:50%;font-size:11px;
+  font-weight:500;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.user-chip .uname{font-size:12px;color:var(--ink2)}
+.role-pill{font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500}
+.btn-ghost{
+  padding:6px 12px;font-size:12px;background:none;
+  border:1px solid var(--border);border-radius:7px;
+  cursor:pointer;color:var(--ink2);font-family:'DM Sans',sans-serif;
+  transition:background 0.1s;
+}
+.btn-ghost:hover{background:var(--surface)}
+
+/* BODY */
+.app-body{display:flex;flex:1;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{
+  width:200px;flex-shrink:0;
+  border-right:1px solid var(--border2);
+  padding:14px 10px;
+  background:var(--surface);
+  overflow-y:auto;
+}
+.nav-section{
+  font-size:10px;font-weight:500;color:var(--ink3);
+  letter-spacing:0.07em;text-transform:uppercase;
+  padding:0 8px;margin:16px 0 4px;
+}
+.nav-section:first-child{margin-top:0}
+.nav-item{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 10px;border-radius:8px;
+  font-size:13px;color:var(--ink2);
+  cursor:pointer;margin-bottom:1px;
+  transition:background 0.1s;border:1px solid transparent;
+  background:none;width:100%;text-align:left;
+  font-family:'DM Sans',sans-serif;
+}
+.nav-item:hover{background:rgba(14,15,17,0.05)}
+.nav-item.active{
+  background:var(--white);color:var(--ink);
+  font-weight:500;border-color:var(--border);
+}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.nav-badge{
+  margin-left:auto;font-size:10px;font-weight:500;
+  padding:1px 6px;border-radius:99px;
+}
+
+/* MAIN */
+.main{flex:1;padding:24px 28px;overflow-y:auto}
+.page-header{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  margin-bottom:20px;gap:12px;flex-wrap:wrap;
+}
+.page-title{font-size:20px;font-weight:500;letter-spacing:-0.025em;color:var(--ink)}
+.page-sub{font-size:13px;color:var(--ink3);margin-top:3px}
+.btn-primary{
+  padding:8px 16px;font-size:13px;font-weight:500;
+  background:var(--ink);color:#fff;border:none;
+  border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;
+  transition:opacity 0.15s;white-space:nowrap;
+}
+.btn-primary:hover{opacity:0.85}
+.btn-sm{
+  padding:6px 12px;font-size:12px;background:none;
+  border:1px solid var(--border);border-radius:7px;
+  cursor:pointer;color:var(--ink2);font-family:'DM Sans',sans-serif;
+  transition:background 0.1s;
+}
+.btn-sm:hover{background:var(--surface)}
+
+/* ── STATS ── */
+.stats{display:grid;gap:10px;margin-bottom:18px}
+.stats-4{grid-template-columns:repeat(4,1fr)}
+.stats-3{grid-template-columns:repeat(3,1fr)}
+.stat-card{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 16px;
+}
+.stat-val{font-size:26px;font-weight:500;letter-spacing:-0.035em;color:var(--ink);line-height:1}
+.stat-lbl{font-size:11px;color:var(--ink3);margin-top:5px}
+.stat-note{font-size:11px;margin-top:6px}
+
+/* ── CARD ── */
+.card{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;
+}
+.card-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border2);
+}
+.card-title{font-size:13px;font-weight:500;color:var(--ink)}
+
+/* ── TABLE ── */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{
+  text-align:left;padding:8px 16px;
+  font-size:11px;font-weight:500;color:var(--ink3);
+  border-bottom:1px solid var(--border2);white-space:nowrap;
+}
+td{
+  padding:10px 16px;border-bottom:1px solid var(--border2);
+  color:var(--ink2);vertical-align:middle;
+}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--surface)}
+.mname{font-weight:500;color:var(--ink);font-size:13px}
+.msub{font-size:11px;color:var(--ink3);margin-top:1px}
+
+/* ── BADGES ── */
+.pill{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;padding:3px 9px;border-radius:99px;font-weight:500;
+}
+.pill-dot{width:6px;height:6px;border-radius:50%}
+.pill-red{background:var(--danger-bg);color:var(--danger-text)}
+.pill-yellow{background:#fef3c7;color:#92400e}
+.pill-green{background:var(--success-bg);color:var(--success-text)}
+.pill-blue{background:var(--accent-bg);color:var(--accent-text)}
+.pill-gray{background:#f3f4f6;color:#374151}
+
+/* ── FORM ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-field{display:flex;flex-direction:column;gap:4px}
+.form-field.full{grid-column:1/-1}
+.form-label{font-size:12px;color:var(--ink3)}
+.form-input,.form-select,.form-textarea{
+  padding:9px 12px;font-size:13px;font-family:'DM Sans',sans-serif;
+  background:var(--white);border:1px solid var(--border);
+  border-radius:8px;color:var(--ink);outline:none;
+  transition:border-color 0.15s;width:100%;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--ink3)}
+.form-textarea{resize:vertical;min-height:90px;line-height:1.5}
+.form-row{display:flex;gap:10px;flex-wrap:wrap}
+
+/* ── MOOD ── */
+.mood-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:6px}
+.mood-btn{
+  border:1px solid var(--border);border-radius:8px;
+  padding:8px 4px;cursor:pointer;background:var(--white);
+  font-size:18px;text-align:center;transition:all 0.1s;
+  font-family:'DM Sans',sans-serif;
+}
+.mood-btn:hover{border-color:var(--ink3)}
+.mood-btn.sel{border:2px solid var(--ink);background:var(--surface)}
+.mood-sub{font-size:10px;color:var(--ink3);margin-top:3px}
+
+/* ── STARS ── */
+.stars{display:flex;gap:4px;margin-top:6px}
+.star{
+  font-size:22px;cursor:pointer;color:#d1d5db;
+  background:none;border:none;font-family:sans-serif;
+  transition:color 0.1s;
+}
+.star.on{color:#f59e0b}
+
+/* ── CHECKBOX ROWS ── */
+.check-row{
+  display:flex;align-items:center;gap:8px;
+  margin-top:8px;font-size:13px;color:var(--ink2);cursor:pointer;
+}
+.check-row input{width:15px;height:15px;cursor:pointer;accent-color:var(--ink)}
+
+/* ── NOTE LIST ── */
+.note-list{display:flex;flex-direction:column;gap:6px}
+.note-item{
+  padding:11px 14px;border-radius:var(--radius);
+  border:1px solid var(--border);background:var(--white);
+  cursor:pointer;transition:border-color 0.1s;
+}
+.note-item:hover{border-color:var(--ink3)}
+.note-item.active{border-color:var(--ink)}
+.note-title-txt{font-size:13px;font-weight:500;color:var(--ink)}
+.note-preview{font-size:12px;color:var(--ink3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-date{font-size:11px;color:var(--ink3);margin-top:5px;font-family:'DM Mono',monospace}
+.note-tags{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
+.ntag{font-size:10px;padding:2px 7px;border-radius:99px;background:var(--surface);color:var(--ink3);border:1px solid var(--border)}
+.ntag.sel{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* ── EDITOR ── */
+.editor-wrap{
+  background:var(--white);border:1px solid var(--border);
+  border-radius:var(--radius);padding:1rem;
+  display:flex;flex-direction:column;gap:10px;min-height:320px;
+}
+.editor-toolbar{
+  display:flex;align-items:center;gap:8px;
+  padding-bottom:10px;border-bottom:1px solid var(--border2);
+  flex-wrap:wrap;
+}
+.editor-title-input{
+  font-size:15px;font-weight:500;border:none;outline:none;
+  background:transparent;flex:1;min-width:0;color:var(--ink);
+  font-family:'DM Sans',sans-serif;
+}
+.editor-body-input{
+  flex:1;border:none;outline:none;background:transparent;
+  resize:none;font-size:13px;line-height:1.7;min-height:200px;
+  color:var(--ink);font-family:'DM Sans',sans-serif;
+}
+
+/* ── SPLIT LAYOUT ── */
+.split{display:grid;grid-template-columns:220px 1fr;gap:14px;align-items:start}
+
+/* ── MISS ALERT ── */
+.miss-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:8px;
+  background:var(--danger-bg);margin-bottom:6px;
+}
+.miss-item:last-child{margin-bottom:0}
+.miss-name{font-size:13px;font-weight:500;color:var(--danger)}
+.miss-days{font-size:11px;color:var(--danger);opacity:0.7;margin-top:1px}
+
+/* ── USER ROWS ── */
+.user-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;border-bottom:1px solid var(--border2);
+}
+.user-row:last-child{border-bottom:none}
+.u-name{font-size:13px;font-weight:500;color:var(--ink)}
+.u-email{font-size:11px;color:var(--ink3)}
+
+/* ── AI BOX ── */
+.ai-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px;
+  font-size:13px;color:var(--ink2);line-height:1.65;
+  white-space:pre-wrap;margin-top:12px;
+}
+.ai-box.loading{opacity:0.5}
+
+/* ── TWO COL ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+
+/* ── REPORT TABLE ── */
+.rep-wrap{overflow-x:auto;margin-top:14px}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:24px;right:24px;
+  background:var(--ink);color:#fff;
+  padding:10px 18px;border-radius:9px;
+  font-size:13px;opacity:0;transition:opacity 0.3s;
+  pointer-events:none;z-index:9999;
+}
+#toast.show{opacity:1}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .sidebar{display:none}
+  .form-grid{grid-template-columns:1fr}
+  .stats-4,.stats-3{grid-template-columns:repeat(2,1fr)}
+  .two-col{grid-template-columns:1fr}
+  .split{grid-template-columns:1fr}
+  .main{padding:16px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOGIN ══════════════ -->
+<div id="login-screen">
+  <div class="login-grid"></div>
+  <div class="login-glow"></div>
+  <div class="login-glow2"></div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="2" width="7" height="7" rx="1.5" fill="white" fill-opacity="0.9"/>
+          <rect x="11" y="2" width="7" height="7" rx="1.5" fill="white" fill-opacity="0.5"/>
+          <rect x="2" y="11" width="7" height="7" rx="1.5" fill="white" fill-opacity="0.5"/>
+          <rect x="11" y="11" width="7" height="7" rx="1.5" fill="white" fill-opacity="0.9"/>
+        </svg>
+      </div>
+      <div>
+        <div class="login-logo-name">MaintenanceOS</div>
+        <div class="login-logo-sub">System utrzymania ruchu</div>
+      </div>
+    </div>
+    <div class="login-heading">Witaj z powrotem</div>
+    <div class="login-sub">Zaloguj się do panelu swojego zakładu</div>
+    <div class="fl">
+      <label>Adres e-mail</label>
+      <input type="email" id="email-input" placeholder="jan@firma.pl" autocomplete="email">
+    </div>
+    <div class="fl">
+      <label>Hasło</label>
+      <input type="password" id="pass-input" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div id="login-error" class="hide"></div>
+    <button id="login-btn" onclick="doLogin()">Zaloguj się</button>
+    <button class="login-forgot" onclick="doReset()">Nie pamiętam hasła</button>
+  </div>
+</div>
+
+<!-- ══════════════ APP ══════════════ -->
+<div id="app" class="hide">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="tb-logo">
+      <div class="tb-icon">
+        <svg viewBox="0 0 14 14" fill="none">
+          <rect x="1" y="1" width="5" height="5" rx="1" fill="white" fill-opacity="0.9"/>
+          <rect x="8" y="1" width="5" height="5" rx="1" fill="white" fill-opacity="0.5"/>
+          <rect x="1" y="8" width="5" height="5" rx="1" fill="white" fill-opacity="0.5"/>
+          <rect x="8" y="8" width="5" height="5" rx="1" fill="white" fill-opacity="0.9"/>
+        </svg>
+      </div>
+      <span class="tb-name">MaintenanceOS</span>
+    </div>
+    <div class="tb-div"></div>
+    <div class="tb-location" id="tb-location">Zakład</div>
+    <div class="tb-right">
+      <div class="user-chip">
+        <div class="ua" id="tb-avatar" style="background:#dbeafe;color:#1d4ed8">??</div>
+        <span class="uname" id="tb-name">Użytkownik</span>
+        <span class="role-pill" id="tb-role" style="background:#ede9fe;color:#5b21b6"></span>
+      </div>
+      <button class="btn-ghost" onclick="doLogout()">Wyloguj</button>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="app-body">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="nav-section">Zgłoszenia</div>
+      <button class="nav-item active" onclick="switchTab('zgloszenia')" id="nav-zgloszenia">
+        <svg viewBox="0 0 15 15" fill="none"><path d="M2 4h11M2 7.5h11M2 11h7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Lista zgłoszeń
+        <span class="nav-badge" id="nb-open" style="background:var(--danger-bg);color:var(--danger)"></span>
+      </button>
+      <button class="nav-item" onclick="switchTab('nowe')" id="nav-nowe">
+        <svg viewBox="0 0 15 15" fill="none"><path d="M7.5 1v13M1 7.5h13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Nowe zgłoszenie
+      </button>
+      <div class="nav-section">Praca</div>
+      <button class="nav-item" onclick="switchTab('raport')" id="nav-raport">
+        <svg viewBox="0 0 15 15" fill="none"><rect x="2" y="2" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 5h5M5 10h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Raport zmiany
+      </button>
+      <button class="nav-item" onclick="switchTab('notatnik')" id="nav-notatnik">
+        <svg viewBox="0 0 15 15" fill="none"><path d="M3 2h9a1 1 0 0 1 1 1v9l-3 2H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/></svg>
+        Notatnik
+        <span class="nav-badge" id="nb-notes" style="background:var(--success-bg);color:var(--success)"></span>
+      </button>
+      <div class="nav-section mgr-only hide" id="sec-mgr">Kierownik</div>
+      <button class="nav-item mgr-only hide" onclick="switchTab('kierownik')" id="nav-kierownik">
+        <svg viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M2 13c0-3 2.5-5 5.5-5s5.5 2 5.5 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Panel kierownika
+      </button>
+      <button class="nav-item mgr-only hide" onclick="switchTab('analiza')" id="nav-analiza">
+        <svg viewBox="0 0 15 15" fill="none"><path d="M2 11l3-4 3 2 3-5 2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Analiza AI
+      </button>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main">
+
+      <!-- ── LISTA ZGŁOSZEŃ ── -->
+      <div id="tab-zgloszenia">
+        <div class="page-header">
+          <div><div class="page-title">Zgłoszenia</div><div class="page-sub" id="zg-sub">Wszystkie otwarte usterki</div></div>
+          <button class="btn-primary" onclick="switchTab('nowe')">+ Nowe zgłoszenie</button>
+        </div>
+        <div class="stats stats-3" style="margin-bottom:16px">
+          <div class="stat-card"><div class="stat-val" id="s-all">0</div><div class="stat-lbl">Wszystkie</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-open" style="color:var(--danger)">0</div><div class="stat-lbl">Otwarte</div></div>
+          <div class="stat-card"><div class="stat-val" id="s-done" style="color:var(--success)">0</div><div class="stat-lbl">Zamknięte</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Lista usterek</span></div>
+          <table><thead><tr><th>Maszyna</th><th>Kategoria</th><th>Zgłosił</th><th>Data</th><th>Priorytet</th><th>Status</th><th></th></tr></thead>
+          <tbody id="zg-tbody"><tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--ink3)">Brak zgłoszeń</td></tr></tbody></table>
+        </div>
+        <div id="zg-ai" class="ai-box hide"></div>
+      </div>
+
+      <!-- ── NOWE ZGŁOSZENIE ── -->
+      <div id="tab-nowe" class="hide">
+        <div class="page-header">
+          <div><div class="page-title">Nowe zgłoszenie</div><div class="page-sub">Opisz usterkę dokładnie</div></div>
+        </div>
+        <div class="card" style="padding:20px">
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Maszyna / urządzenie</label>
+              <select class="form-select" id="f-machine">
+                <option value="">— wybierz —</option>
+                <option>Prasa hydrauliczna #1</option>
+                <option>Tokarka CNC #3</option>
+                <option>Sprężarka główna</option>
+                <option>Linia montażowa A</option>
+                <option>Pompa obiegowa</option>
+                <option>Wentylator hali</option>
+                <option>Inne</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Priorytet</label>
+              <select class="form-select" id="f-priority">
+                <option value="high">Wysoki — stop produkcji</option>
+                <option value="med" selected>Średni — ogranicza pracę</option>
+                <option value="low">Niski — planowa naprawa</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Kategoria</label>
+              <select class="form-select" id="f-cat">
+                <option>Mechaniczna</option><option>Elektryczna</option>
+                <option>Hydrauliczna</option><option>Pneumatyczna</option>
+                <option>Sterowanie / PLC</option><option>Inne</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Dział</label>
+              <select class="form-select" id="f-dept">
+                <option>Produkcja</option><option>Utrzymanie ruchu</option>
+                <option>Magazyn</option><option>Energetyka</option>
+              </select>
+            </div>
+            <div class="form-field full">
+              <label class="form-label">Opis awarii</label>
+              <textarea class="form-textarea" id="f-desc" placeholder="Opisz co się stało, jakie objawy, co robiłeś przed awarią..." style="min-height:110px"></textarea>
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:16px">
+            <button class="btn-primary" onclick="submitReport()">Wyślij zgłoszenie</button>
+            <button class="btn-sm" onclick="aiHint()">✦ Podpowiedź AI</button>
+          </div>
+          <div id="hint-ai" class="ai-box hide"></div>
+        </div>
+      </div>
+
+      <!-- ── RAPORT ZMIANY ── -->
+      <div id="tab-raport" class="hide">
+        <div class="page-header">
+          <div><div class="page-title">Raport zmiany</div><div class="page-sub">Wypełnij po zakończeniu pracy</div></div>
+        </div>
+        <div class="card" style="padding:20px">
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label">Dział</label>
+              <select class="form-select" id="r-dept">
+                <option>Produkcja</option><option>Utrzymanie ruchu</option>
+                <option>Magazyn</option><option>Energetyka</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Czas naprawy (minuty)</label>
+              <input class="form-input" type="number" id="r-time" placeholder="np. 45" min="0">
+            </div>
+            <div class="form-field full">
+              <label class="form-label">Powiąż ze zgłoszeniem (opcjonalnie)</label>
+              <select class="form-select" id="r-ref"><option value="">— brak powiązania —</option></select>
+            </div>
+            <div class="form-field full">
+              <label class="form-label">Co zostało wykonane?</label>
+              <textarea class="form-textarea" id="r-done" placeholder="Opisz czynności, wymienione części, obserwacje..."></textarea>
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            <div class="form-label" style="margin-bottom:6px">Czy problem usunięty?</div>
+            <div class="form-row">
+              <button class="btn-sm" id="r-yes-btn" onclick="setFixed(true)">✓ Tak, naprawione</button>
+              <button class="btn-sm" id="r-no-btn" onclick="setFixed(false)">⚠ Nie, wymaga dalszych prac</button>
+            </div>
+          </div>
+          <div id="r-partial-wrap" class="hide" style="margin-top:12px">
+            <div class="form-label" style="margin-bottom:4px">Co pozostało?</div>
+            <textarea class="form-textarea" id="r-partial" style="min-height:60px"></textarea>
+          </div>
+
+          <div style="margin-top:16px">
+            <div class="form-label">Samopoczucie podczas zmiany</div>
+            <div class="mood-grid">
+              <button class="mood-btn" onclick="setMood(1)" data-v="1">😤<div class="mood-sub">Bardzo złe</div></button>
+              <button class="mood-btn" onclick="setMood(2)" data-v="2">😕<div class="mood-sub">Złe</div></button>
+              <button class="mood-btn" onclick="setMood(3)" data-v="3">😐<div class="mood-sub">Neutralne</div></button>
+              <button class="mood-btn" onclick="setMood(4)" data-v="4">🙂<div class="mood-sub">Dobre</div></button>
+              <button class="mood-btn" onclick="setMood(5)" data-v="5">😊<div class="mood-sub">Bardzo dobre</div></button>
+            </div>
+          </div>
+
+          <div style="margin-top:14px">
+            <div class="form-label">Ocena narzędzi i części zamiennych</div>
+            <div class="stars">
+              <button class="star" onclick="setStar(1)">★</button>
+              <button class="star" onclick="setStar(2)">★</button>
+              <button class="star" onclick="setStar(3)">★</button>
+              <button class="star" onclick="setStar(4)">★</button>
+              <button class="star" onclick="setStar(5)">★</button>
+            </div>
+          </div>
+
+          <div style="margin-top:14px">
+            <div class="form-label" style="margin-bottom:6px">Zaznacz co dotyczy</div>
+            <label class="check-row"><input type="checkbox" id="c1"> Wymagane zamówienie części</label>
+            <label class="check-row"><input type="checkbox" id="c2"> Konieczny przegląd całej maszyny</label>
+            <label class="check-row"><input type="checkbox" id="c3"> Zdarzenie powtarza się</label>
+            <label class="check-row"><input type="checkbox" id="c4"> Naprawa tymczasowa</label>
+          </div>
+
+          <div class="form-field full" style="margin-top:14px">
+            <label class="form-label">Dodatkowe uwagi</label>
+            <textarea class="form-textarea" id="r-notes" style="min-height:60px" placeholder="Sugestie, brakujące części, problemy z procedurami..."></textarea>
+          </div>
+
+          <div class="form-row" style="margin-top:16px">
+            <button class="btn-primary" onclick="submitWorkerReport()">Wyślij raport</button>
+            <button class="btn-sm" onclick="aiReport()">✦ Analiza AI</button>
+          </div>
+          <div id="r-ai" class="ai-box hide"></div>
+        </div>
+      </div>
+
+      <!-- ── NOTATNIK ── -->
+      <div id="tab-notatnik" class="hide">
+        <div class="page-header">
+          <div><div class="page-title">Notatnik</div><div class="page-sub">Twoje prywatne notatki serwisowe</div></div>
+          <button class="btn-primary" onclick="newNote()">+ Nowa notatka</button>
+        </div>
+        <div style="margin-bottom:10px">
+          <input class="form-input" type="text" id="note-search" placeholder="Szukaj notatek..." oninput="renderNotes()" style="max-width:280px">
+          <div id="tag-filter" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px"></div>
+        </div>
+        <div class="split">
+          <div class="note-list" id="note-list"></div>
+          <div class="editor-wrap" id="editor-wrap">
+            <div style="color:var(--ink3);font-size:13px;text-align:center;padding:2rem">
+              Wybierz notatkę lub utwórz nową
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PANEL KIEROWNIKA ── -->
+      <div id="tab-kierownik" class="hide">
+        <div class="page-header">
+          <div><div class="page-title">Panel kierownika</div><div class="page-sub" id="k-range"></div></div>
+          <div class="form-row">
+            <input class="form-input" type="date" id="k-from" style="width:140px">
+            <input class="form-input" type="date" id="k-to" style="width:140px">
+            <button class="btn-primary" onclick="genReport()">Generuj raport</button>
+            <button class="btn-sm" onclick="printReport()">Drukuj PDF</button>
+          </div>
+        </div>
+        <div id="k-content">
+          <div style="text-align:center;padding:3rem;color:var(--ink3);font-size:13px">Wybierz zakres dat i kliknij „Generuj raport"</div>
+        </div>
+      </div>
+
+      <!-- ── ANALIZA AI ── -->
+      <div id="tab-analiza" class="hide">
+        <div class="page-header">
+          <div><div class="page-title">Analiza AI</div><div class="page-sub">Pytaj o dane, trendy i rekomendacje</div></div>
+        </div>
+        <div class="card" style="padding:20px">
+          <div class="form-field full">
+            <label class="form-label">Zadaj pytanie</label>
+            <textarea class="form-textarea" id="ai-q" placeholder='np. "Jakie maszyny najczęściej się psują?" lub "Co pracownicy robili w tym tygodniu?"' style="min-height:80px"></textarea>
+          </div>
+          <button class="btn-primary" style="margin-top:10px" onclick="askAI()">Analizuj ↗</button>
+          <div id="ai-ans" class="ai-box hide"></div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /app-body -->
+</div><!-- /app -->
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════
+// KONFIGURACJA SUPABASE
+// Wpisz swoje klucze z supabase.com → Settings → API
+// ══════════════════════════════════
+const SUPABASE_URL = 'TWOJ_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'TWOJ_SUPABASE_ANON_KEY';
+
+// Klucz AI (Anthropic) — opcjonalnie, jeśli masz
+const ANTHROPIC_KEY = '';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── STATE ──
+let currentUser = null;
+let currentRole = 'worker'; // 'worker' | 'manager'
+let reports = JSON.parse(localStorage.getItem('cmms_reports') || '[]');
+let wReports = JSON.parse(localStorage.getItem('cmms_wreports') || '[]');
+let notes = JSON.parse(localStorage.getItem('cmms_notes') || '[]');
+let activeNoteId = null;
+let filterTag = null;
+let selMood = 0, selStars = 0, fixedStatus = null;
+
+const ALL_TAGS = ['Maszyna','Procedura','Uwaga','BHP','Zmiana','Pomysł','Pilne'];
+
+function save() {
+  localStorage.setItem('cmms_reports', JSON.stringify(reports));
+  localStorage.setItem('cmms_wreports', JSON.stringify(wReports));
+  localStorage.setItem('cmms_notes', JSON.stringify(notes));
+}
+
+// ── TOAST ──
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── AUTH ──
+async function doLogin() {
+  const email = document.getElementById('email-input').value.trim();
+  const pass = document.getElementById('pass-input').value;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-error');
+  if (!email || !pass) { showError('Podaj email i hasło'); return; }
+  btn.disabled = true; btn.textContent = 'Logowanie...';
+  err.classList.add('hide');
+
+  // Tryb demo — jeśli nie masz Supabase skonfigurowanego
+  if (SUPABASE_URL === 'TWOJ_SUPABASE_URL') {
+    await new Promise(r => setTimeout(r, 800));
+    const demoUsers = {
+      'pracownik@firma.pl': { name: 'Jan Kowalski', role: 'worker', initials: 'JK', color: '#dbeafe', tc: '#1d4ed8' },
+      'kierownik@firma.pl': { name: 'Anna Nowak', role: 'manager', initials: 'AN', color: '#ede9fe', tc: '#6d28d9' },
+    };
+    const demo = demoUsers[email];
+    if (demo && pass === 'demo123') {
+      currentUser = { email, ...demo };
+      currentRole = demo.role;
+      enterApp();
+    } else {
+      showError('Tryb demo: użyj pracownik@firma.pl lub kierownik@firma.pl, hasło: demo123');
+      btn.disabled = false; btn.textContent = 'Zaloguj się';
+    }
+    return;
+  }
+
+  // Prawdziwe Supabase
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) {
+    showError('Błędny email lub hasło');
+    btn.disabled = false; btn.textContent = 'Zaloguj się';
+    return;
+  }
+  const user = data.user;
+  const meta = user.user_metadata || {};
+  currentUser = {
+    email: user.email,
+    name: meta.full_name || user.email.split('@')[0],
+    role: meta.role || 'worker',
+    initials: (meta.full_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2),
+    color: meta.role === 'manager' ? '#ede9fe' : '#dbeafe',
+    tc: meta.role === 'manager' ? '#6d28d9' : '#1d4ed8',
+  };
+  currentRole = currentUser.role;
+  enterApp();
+}
+
+function showError(msg) {
+  const err = document.getElementById('login-error');
+  err.textContent = msg; err.classList.remove('hide');
+}
+
+function enterApp() {
+  document.getElementById('login-screen').classList.add('hide');
+  document.getElementById('app').classList.remove('hide');
+  // Topbar
+  document.getElementById('tb-avatar').textContent = currentUser.initials;
+  document.getElementById('tb-avatar').style.background = currentUser.color;
+  document.getElementById('tb-avatar').style.color = currentUser.tc;
+  document.getElementById('tb-name').textContent = currentUser.name;
+  document.getElementById('tb-location').textContent = 'Zakład Gdynia';
+  if (currentRole === 'manager') {
+    document.getElementById('tb-role').textContent = 'kierownik';
+    document.getElementById('tb-role').style.cssText = 'background:#ede9fe;color:#5b21b6;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500';
+    document.querySelectorAll('.mgr-only').forEach(el => el.classList.remove('hide'));
+  }
+  refreshBadges();
+  renderReportsList();
+  populateRefSelect();
+  initKDates();
+  switchTab('zgloszenia');
+}
+
+async function doLogout() {
+  if (SUPABASE_URL !== 'TWOJ_SUPABASE_URL') await sb.auth.signOut();
+  currentUser = null; currentRole = 'worker';
+  document.getElementById('app').classList.add('hide');
+  document.getElementById('login-screen').classList.remove('hide');
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-btn').textContent = 'Zaloguj się';
+  document.getElementById('email-input').value = '';
+  document.getElementById('pass-input').value = '';
+  document.getElementById('login-error').classList.add('hide');
+}
+
+async function doReset() {
+  const email = document.getElementById('email-input').value.trim();
+  if (!email) { showError('Podaj adres email'); return; }
+  if (SUPABASE_URL === 'TWOJ_SUPABASE_URL') { alert('Tryb demo — reset hasła niedostępny'); return; }
+  await sb.auth.resetPasswordForEmail(email);
+  showError('Wysłano link resetowania na ' + email);
+}
+
+// Sprawdź sesję przy starcie
+(async () => {
+  if (SUPABASE_URL !== 'TWOJ_SUPABASE_URL') {
+    const { data } = await sb.auth.getSession();
+    if (data.session) {
+      const u = data.session.user;
+      const meta = u.user_metadata || {};
+      currentUser = {
+        email: u.email,
+        name: meta.full_name || u.email.split('@')[0],
+        role: meta.role || 'worker',
+        initials: (meta.full_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2),
+        color: meta.role === 'manager' ? '#ede9fe' : '#dbeafe',
+        tc: meta.role === 'manager' ? '#6d28d9' : '#1d4ed8',
+      };
+      currentRole = currentUser.role;
+      enterApp();
+    }
+  }
+})();
+
+// ── NAVIGATION ──
+function switchTab(name) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hide'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.remove('hide');
+  const nav = document.getElementById('nav-' + name);
+  if (nav) nav.classList.add('active');
+  if (name === 'zgloszenia') renderReportsList();
+  if (name === 'notatnik') { renderNotes(); renderTagFilter(); }
+  if (name === 'raport') populateRefSelect();
+}
+
+// ── BADGES ──
+function refreshBadges() {
+  const open = reports.filter(r => r.status === 'open').length;
+  const nb = document.getElementById('nb-open');
+  nb.textContent = open || '';
+  nb.style.display = open ? '' : 'none';
+  const nn = document.getElementById('nb-notes');
+  nn.textContent = notes.length || '';
+  nn.style.display = notes.length ? '' : 'none';
+  document.getElementById('s-all').textContent = reports.length;
+  document.getElementById('s-open').textContent = open;
+  document.getElementById('s-done').textContent = reports.length - open;
+}
+
+// ── ZGŁOSZENIA ──
+const pmap = { high: 'pill-red', med: 'pill-yellow', low: 'pill-green' };
+const plbl = { high: 'Wysoki', med: 'Średni', low: 'Niski' };
+
+function renderReportsList() {
+  const tbody = document.getElementById('zg-tbody');
+  const list = currentRole === 'manager' ? reports : reports.filter(r => r.worker === currentUser?.name);
+  document.getElementById('zg-sub').textContent = currentRole === 'manager'
+    ? `Wszystkie zgłoszenia (${list.length})`
+    : `Twoje zgłoszenia (${list.length})`;
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--ink3)">Brak zgłoszeń</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(r => `
+    <tr>
+      <td><div class="mname">${r.machine}</div><div class="msub">${r.dept} · ${r.category}</div></td>
+      <td>${r.category}</td>
+      <td>${r.worker}</td>
+      <td class="mono" style="font-size:11px;color:var(--ink3)">${fmtDate(r.created)}</td>
+      <td><span class="pill ${pmap[r.priority]}">${plbl[r.priority]}</span></td>
+      <td><span class="pill ${r.status === 'open' ? 'pill-blue' : 'pill-green'}">${r.status === 'open' ? 'Otwarte' : 'Zamknięte'}</span></td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${r.status === 'open' ? `<button class="btn-sm" onclick="closeRep(${r.id})">Zamknij</button>` : ''}
+          ${ANTHROPIC_KEY ? `<button class="btn-sm" onclick="analyzeRep(${r.id})">✦ AI</button>` : ''}
+        </div>
+        <div id="rep-ai-${r.id}" class="ai-box hide" style="margin-top:6px;font-size:12px"></div>
+      </td>
+    </tr>`).join('');
+  refreshBadges();
+}
+
+function submitReport() {
+  const machine = document.getElementById('f-machine').value;
+  const desc = document.getElementById('f-desc').value.trim();
+  if (!machine || !desc) { toast('Wypełnij maszynę i opis'); return; }
+  const rep = {
+    id: Date.now(),
+    worker: currentUser?.name || 'Nieznany',
+    machine,
+    priority: document.getElementById('f-priority').value,
+    category: document.getElementById('f-cat').value,
+    dept: document.getElementById('f-dept').value,
+    desc,
+    status: 'open',
+    created: new Date().toISOString(),
+  };
+  reports.unshift(rep); save();
+  toast('Zgłoszenie wysłane ✓');
+  document.getElementById('f-machine').value = '';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('hint-ai').classList.add('hide');
+  switchTab('zgloszenia');
+}
+
+function closeRep(id) {
+  const r = reports.find(x => x.id === id);
+  if (r) { r.status = 'closed'; save(); renderReportsList(); toast('Zgłoszenie zamknięte'); }
+}
+
+async function aiHint() {
+  const desc = document.getElementById('f-desc').value.trim();
+  const machine = document.getElementById('f-machine').value;
+  if (!desc || !machine) { toast('Wypełnij maszynę i opis'); return; }
+  const box = document.getElementById('hint-ai');
+  box.classList.remove('hide'); box.classList.add('loading');
+  box.textContent = 'AI analizuje opis...';
+  box.textContent = await callAI(`Awaria: maszyna "${machine}", opis: "${desc}". Podaj: 1) Prawdopodobną przyczynę (2 zdania), 2) Pierwsze 3 kroki do sprawdzenia, 3) Czy wymagane natychmiastowe wyłączenie?`);
+  box.classList.remove('loading');
+}
+
+async function analyzeRep(id) {
+  if (!ANTHROPIC_KEY) return;
+  const r = reports.find(x => x.id === id);
+  const box = document.getElementById('rep-ai-' + id);
+  box.classList.remove('hide'); box.classList.add('loading');
+  box.textContent = 'Analizuję...';
+  const hist = reports.filter(x => x.machine === r.machine && x.id !== id).slice(0,4).map(h => h.desc).join(' | ') || 'brak';
+  box.textContent = await callAI(`Zgłoszenie: "${r.machine}", opis: "${r.desc}". Historia: ${hist}. Podaj przyczynę, działania, jak zapobiec.`);
+  box.classList.remove('loading');
+}
+
+// ── RAPORT ZMIANY ──
+function setMood(v) {
+  selMood = v;
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.toggle('sel', parseInt(b.dataset.v) === v));
+}
+function setStar(v) {
+  selStars = v;
+  document.querySelectorAll('.star').forEach((b, i) => b.classList.toggle('on', i < v));
+}
+function setFixed(v) {
+  fixedStatus = v;
+  document.getElementById('r-yes-btn').style.fontWeight = v ? '500' : '400';
+  document.getElementById('r-no-btn').style.fontWeight = !v ? '500' : '400';
+  document.getElementById('r-partial-wrap').classList.toggle('hide', v !== false);
+}
+function populateRefSelect() {
+  const sel = document.getElementById('r-ref');
+  sel.innerHTML = '<option value="">— brak powiązania —</option>';
+  reports.filter(r => r.status === 'open').forEach(r => {
+    sel.innerHTML += `<option value="${r.id}">${r.machine} — ${r.desc.slice(0, 50)}</option>`;
+  });
+}
+function submitWorkerReport() {
+  const done = document.getElementById('r-done').value.trim();
+  if (!done) { toast('Opisz co zostało wykonane'); return; }
+  const refId = document.getElementById('r-ref').value;
+  const rep = {
+    id: Date.now(),
+    worker: currentUser?.name || 'Nieznany',
+    dept: document.getElementById('r-dept').value,
+    time: document.getElementById('r-time').value,
+    refId,
+    done,
+    fixed: fixedStatus,
+    partial: document.getElementById('r-partial').value,
+    mood: selMood,
+    stars: selStars,
+    notes: document.getElementById('r-notes').value,
+    c1: document.getElementById('c1').checked,
+    c2: document.getElementById('c2').checked,
+    c3: document.getElementById('c3').checked,
+    c4: document.getElementById('c4').checked,
+    created: new Date().toISOString(),
+  };
+  wReports.unshift(rep);
+  if (refId && fixedStatus === true) {
+    const ref = reports.find(r => r.id == refId);
+    if (ref) ref.status = 'closed';
+  }
+  save(); toast('Raport wysłany ✓');
+  ['r-done','r-partial','r-notes','r-time'].forEach(id => document.getElementById(id).value = '');
+  ['c1','c2','c3','c4'].forEach(id => document.getElementById(id).checked = false);
+  document.getElementById('r-partial-wrap').classList.add('hide');
+  document.getElementById('r-ai').classList.add('hide');
+  selMood = 0; selStars = 0; fixedStatus = null;
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('sel'));
+  document.querySelectorAll('.star').forEach(b => b.classList.remove('on'));
+  document.getElementById('r-yes-btn').style.fontWeight = '400';
+  document.getElementById('r-no-btn').style.fontWeight = '400';
+  switchTab('zgloszenia');
+}
+async function aiReport() {
+  const done = document.getElementById('r-done').value.trim();
+  if (!done) { toast('Opisz co zostało wykonane'); return; }
+  const box = document.getElementById('r-ai');
+  box.classList.remove('hide'); box.classList.add('loading');
+  box.textContent = 'Analizuję raport...';
+  const flags = [
+    document.getElementById('c1').checked && 'zamówienie części',
+    document.getElementById('c2').checked && 'przegląd maszyny',
+    document.getElementById('c3').checked && 'powtarzające się',
+    document.getElementById('c4').checked && 'naprawa tymczasowa',
+  ].filter(Boolean).join(', ') || 'brak';
+  box.textContent = await callAI(`Raport naprawy: ${done}. Kompletna: ${fixedStatus === true ? 'tak' : 'nie'}. Flagi: ${flags}. Oceń co zrobiono dobrze, jakie ryzyka, co zalecasz.`);
+  box.classList.remove('loading');
+}
+
+// ── NOTATNIK ──
+const MOODMAP = { 1:'😤', 2:'😕', 3:'😐', 4:'🙂', 5:'😊' };
+
+function newNote() {
+  const n = { id: Date.now(), title: 'Nowa notatka', body: '', tags: [], worker: currentUser?.name || '', created: new Date().toISOString(), updated: new Date().toISOString() };
+  notes.unshift(n); save();
+  activeNoteId = n.id;
+  renderNotes(); openEditor(n.id); renderTagFilter();
+}
+
+function renderTagFilter() {
+  const used = [...new Set(notes.flatMap(n => n.tags))];
+  const el = document.getElementById('tag-filter');
+  el.innerHTML = `<span class="ntag${filterTag === null ? ' sel' : ''}" onclick="setTagFilter(null)" style="cursor:pointer">Wszystkie</span>`;
+  used.forEach(t => el.innerHTML += `<span class="ntag${filterTag === t ? ' sel' : ''}" onclick="setTagFilter('${t}')" style="cursor:pointer">${t}</span>`);
+}
+function setTagFilter(t) { filterTag = t; renderNotes(); renderTagFilter(); }
+
+function renderNotes() {
+  const q = (document.getElementById('note-search')?.value || '').toLowerCase();
+  let list = notes;
+  if (filterTag) list = list.filter(n => n.tags.includes(filterTag));
+  if (q) list = list.filter(n => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q));
+  const el = document.getElementById('note-list');
+  if (!list.length) { el.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:1rem">Brak notatek</div>'; return; }
+  el.innerHTML = list.map(n => `
+    <div class="note-item${activeNoteId === n.id ? ' active' : ''}" onclick="openEditor(${n.id})">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div class="note-title-txt">${n.title || '(bez tytułu)'}</div>
+        <button onclick="event.stopPropagation();delNote(${n.id})" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--ink3);padding:0 2px;line-height:1">×</button>
+      </div>
+      ${n.worker ? `<div style="font-size:11px;color:var(--ink3)">${n.worker}</div>` : ''}
+      <div class="note-preview">${n.body || '(pusta)'}</div>
+      <div class="note-tags">${n.tags.map(t => `<span class="ntag">${t}</span>`).join('')}</div>
+      <div class="note-date">${fmtDate(n.updated)}</div>
+    </div>`).join('');
+}
+
+function openEditor(id) {
+  activeNoteId = id;
+  const n = notes.find(x => x.id === id);
+  if (!n) return;
+  renderNotes();
+  document.getElementById('editor-wrap').innerHTML = `
+    <div class="editor-toolbar">
+      <input class="editor-title-input" id="nt-title" value="${esc(n.title)}" placeholder="Tytuł" oninput="updNote('title',this.value)">
+      <button class="btn-sm" onclick="aiNote()">✦ AI</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input style="font-size:12px;border:none;outline:none;background:transparent;color:var(--ink3);width:160px;font-family:'DM Sans',sans-serif" id="nt-worker" value="${esc(n.worker)}" placeholder="Pracownik" oninput="updNote('worker',this.value)">
+      <span style="font-size:11px;color:var(--ink3);font-family:'DM Mono',monospace">${fmtDate(n.created)}</span>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--ink3);margin-bottom:5px">Tagi</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${ALL_TAGS.map(t => `<span class="ntag${n.tags.includes(t) ? ' sel' : ''}" onclick="toggleTag(${id},'${t}')" style="cursor:pointer">${t}</span>`).join('')}
+      </div>
+    </div>
+    <textarea class="editor-body-input" id="nt-body" placeholder="Pisz tutaj..." oninput="updNote('body',this.value)">${esc(n.body)}</textarea>
+    <div id="note-ai-box" class="ai-box hide"></div>`;
+}
+
+function updNote(field, val) {
+  const n = notes.find(x => x.id === activeNoteId);
+  if (!n) return;
+  n[field] = val; n.updated = new Date().toISOString();
+  save(); renderNotes();
+}
+
+function toggleTag(id, tag) {
+  const n = notes.find(x => x.id === id);
+  if (!n) return;
+  n.tags = n.tags.includes(tag) ? n.tags.filter(t => t !== tag) : [...n.tags, tag];
+  n.updated = new Date().toISOString();
+  save(); openEditor(id); renderNotes(); renderTagFilter();
+}
+
+function delNote(id) {
+  notes = notes.filter(n => n.id !== id);
+  if (activeNoteId === id) {
+    activeNoteId = null;
+    document.getElementById('editor-wrap').innerHTML = '<div style="color:var(--ink3);font-size:13px;text-align:center;padding:2rem">Wybierz notatkę lub utwórz nową</div>';
+  }
+  save(); renderNotes(); renderTagFilter(); toast('Notatka usunięta');
+}
+
+async function aiNote() {
+  const n = notes.find(x => x.id === activeNoteId);
+  if (!n?.body?.trim()) { toast('Napisz coś w notatce'); return; }
+  const box = document.getElementById('note-ai-box');
+  box.classList.remove('hide'); box.classList.add('loading');
+  box.textContent = 'Analizuję notatkę...';
+  box.textContent = await callAI(`Notatka serwisowa: "${n.title}"\n${n.body}\nPodaj: 1) Krótkie podsumowanie, 2) Czy wskazuje na poważny problem, 3) Sugerowane działania.`);
+  box.classList.remove('loading');
+}
+
+// ── KIEROWNIK ──
+function initKDates() {
+  const to = new Date();
+  const from = new Date(); from.setDate(from.getDate() - 6);
+  document.getElementById('k-from').value = from.toISOString().slice(0,10);
+  document.getElementById('k-to').value = to.toISOString().slice(0,10);
+}
+
+function isWeekday(d) { const day = new Date(d).getDay(); return day !== 0 && day !== 6; }
+function dateRange(from, to) {
+  const days = []; let cur = new Date(from); const end = new Date(to);
+  while (cur <= end) { days.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); }
+  return days;
+}
+
+const WCOLORS = [
+  ['#dbeafe','#1d4ed8'],['#ede9fe','#6d28d9'],['#d1fae5','#065f46'],
+  ['#fce7f3','#9d174d'],['#fef3c7','#92400e'],['#e0f2fe','#0369a1'],
+];
+function wcolor(name) {
+  const all = [...new Set([...notes, ...wReports, ...reports].map(x => x.worker).filter(Boolean))];
+  return WCOLORS[all.indexOf(name) % WCOLORS.length] || ['#f3f4f6','#374151'];
+}
+
+async function genReport() {
+  const from = document.getElementById('k-from').value;
+  const to = document.getElementById('k-to').value;
+  if (!from || !to) { toast('Wybierz zakres dat'); return; }
+  document.getElementById('k-range').textContent = `${fmtDay(from)} – ${fmtDay(to)}`;
+
+  const days = dateRange(from, to).filter(isWeekday);
+  const inRange = x => x >= from && x <= to + 'T23:59';
+
+  const allWorkers = [...new Set([
+    ...notes.filter(n => inRange(n.updated)).map(n => n.worker),
+    ...wReports.filter(r => inRange(r.created)).map(r => r.worker),
+    ...reports.filter(r => inRange(r.created)).map(r => r.worker),
+  ])].filter(Boolean);
+
+  // Brakujące
+  const missing = [];
+  allWorkers.forEach(w => {
+    days.forEach(day => {
+      const hasAct = notes.some(n => n.worker === w && n.updated?.startsWith(day))
+        || wReports.some(r => r.worker === w && r.created?.startsWith(day))
+        || reports.some(r => r.worker === w && r.created?.startsWith(day));
+      if (!hasAct) missing.push({ worker: w, day });
+    });
+  });
+
+  const byWorker = {};
+  missing.forEach(m => { if (!byWorker[m.worker]) byWorker[m.worker] = []; byWorker[m.worker].push(m.day); });
+
+  const totalNotes = notes.filter(n => inRange(n.updated)).length;
+  const totalReps = wReports.filter(r => inRange(r.created)).length;
+  const totalReqs = reports.filter(r => inRange(r.created)).length;
+
+  // Tabela aktywności
+  const rows = [];
+  notes.filter(n => inRange(n.updated)).forEach(n => {
+    rows.push({ date: n.updated?.slice(0,10), worker: n.worker||'?', what: n.title, tags: n.tags, type: 'notatka', statusOk: true });
+  });
+  wReports.filter(r => inRange(r.created)).forEach(r => {
+    rows.push({ date: r.created?.slice(0,10), worker: r.worker||'?', what: r.done?.slice(0,60)||'—', tags: [], type: 'raport', statusOk: r.fixed === true });
+  });
+  rows.sort((a,b) => b.date?.localeCompare(a.date));
+
+  // Tabela per pracownik
+  const perWorker = {};
+  allWorkers.forEach(w => {
+    perWorker[w] = {
+      notes: notes.filter(n => n.worker===w && inRange(n.updated)).length,
+      reps: wReports.filter(r => r.worker===w && inRange(r.created)).length,
+      reqs: reports.filter(r => r.worker===w && inRange(r.created)).length,
+      last: [...notes.filter(n=>n.worker===w),...wReports.filter(r=>r.worker===w),...reports.filter(r=>r.worker===w)]
+        .map(x=>x.updated||x.created).filter(Boolean).sort().pop(),
+      missing: (byWorker[w]||[]).length,
+    };
+  });
+
+  const kc = document.getElementById('k-content');
+  kc.innerHTML = `
+    <div class="stats stats-4" style="margin-bottom:16px">
+      <div class="stat-card"><div class="stat-val">${allWorkers.length}</div><div class="stat-lbl">Pracownicy</div></div>
+      <div class="stat-card"><div class="stat-val">${totalNotes}</div><div class="stat-lbl">Notatki</div></div>
+      <div class="stat-card"><div class="stat-val">${totalReps}</div><div class="stat-lbl">Raporty zmian</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:${missing.length?'var(--danger)':'var(--success)'}">${missing.length}</div><div class="stat-lbl">Brak. dni robocze</div></div>
+    </div>
+
+    ${missing.length ? `
+    <div class="card" style="margin-bottom:14px;padding:14px 16px">
+      <div class="card-title" style="color:var(--danger);margin-bottom:10px">Brakujące raporty</div>
+      ${Object.entries(byWorker).map(([w,ds]) => {
+        const [bg,tc] = wcolor(w);
+        return `<div class="miss-item">
+          <div class="ua" style="width:30px;height:30px;font-size:11px;background:${bg};color:${tc}">${initials(w)}</div>
+          <div><div class="miss-name">${w}</div><div class="miss-days">${ds.map(d=>fmtDay(d)).join(' · ')}</div></div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    <div class="two-col">
+      <div class="card" style="padding:14px 16px">
+        <div class="card-title" style="margin-bottom:10px">Aktywność pracowników</div>
+        ${allWorkers.map(w => {
+          const [bg,tc] = wcolor(w);
+          const pw = perWorker[w];
+          return `<div class="user-row">
+            <div class="ua" style="background:${bg};color:${tc}">${initials(w)}</div>
+            <div style="flex:1"><div class="u-name">${w}</div><div class="u-email">${pw.notes} notatek · ${pw.reps} raportów · ${pw.reqs} zgłoszeń</div></div>
+            ${pw.missing ? `<span class="pill pill-red">${pw.missing} brak</span>` : `<span class="pill pill-green">OK</span>`}
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="card" style="padding:14px 16px">
+        <div class="card-title" style="margin-bottom:10px">Zgłoszenia w tym okresie</div>
+        ${reports.filter(r=>inRange(r.created)).slice(0,6).map(r=>`
+          <div style="padding:7px 0;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:8px">
+            <span class="pill ${pmap[r.priority]}" style="flex-shrink:0">${plbl[r.priority]}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.machine}</div>
+              <div style="font-size:11px;color:var(--ink3)">${r.worker} · ${fmtDay(r.created?.slice(0,10))}</div>
+            </div>
+            <span class="pill ${r.status==='open'?'pill-blue':'pill-green'}">${r.status==='open'?'Otwarte':'Zam.'}</span>
+          </div>`).join('') || '<div style="color:var(--ink3);font-size:13px">Brak zgłoszeń</div>'}
+      </div>
+    </div>
+
+    <div class="card rep-wrap">
+      <div class="card-header"><span class="card-title">Dziennik aktywności</span></div>
+      <table><thead><tr><th>Data</th><th>Pracownik</th><th>Treść</th><th>Typ</th><th>Tagi</th></tr></thead>
+      <tbody>${rows.length ? rows.map(r=>{
+        const [bg,tc]=wcolor(r.worker);
+        return `<tr>
+          <td class="mono" style="font-size:11px;color:var(--ink3);white-space:nowrap">${fmtDay(r.date)}</td>
+          <td><div style="display:flex;align-items:center;gap:6px"><div class="ua" style="width:24px;height:24px;font-size:10px;background:${bg};color:${tc}">${initials(r.worker)}</div><span style="font-size:12px">${r.worker}</span></div></td>
+          <td style="font-size:12px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.what}</td>
+          <td><span class="pill ${r.type==='notatka'?'pill-gray':'pill-green'}">${r.type}</span></td>
+          <td>${r.tags.map(t=>`<span class="ntag">${t}</span>`).join(' ')}</td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="5" style="text-align:center;padding:1rem;color:var(--ink3)">Brak danych</td></tr>'}</tbody>
+      </table>
+    </div>
+
+    <div id="mgr-ai" class="ai-box" style="margin-top:14px">AI analizuje dane okresu...</div>
+  `;
+
+  // AI summary
+  if (ANTHROPIC_KEY) {
+    const ns = notes.filter(n=>inRange(n.updated)).slice(0,15).map(n=>`${n.worker}(${n.updated?.slice(0,10)}): ${n.title} — ${n.body?.slice(0,60)}`).join('\n');
+    const rs = wReports.filter(r=>inRange(r.created)).slice(0,10).map(r=>`${r.worker}: ${r.done?.slice(0,50)} fix:${r.fixed}`).join('\n');
+    const summary = await callAI(`Raport ${from}–${to}.\nNotatki:\n${ns||'brak'}\nRaporty:\n${rs||'brak'}\nBraki:\n${Object.entries(byWorker).map(([w,ds])=>`${w}: ${ds.join(',')}`).join('\n')||'brak'}\n\nPodaj: 1) Podsumowanie aktywności, 2) Główne problemy, 3) Rekomendacje dla kierownika.`);
+    document.getElementById('mgr-ai').textContent = summary;
+  } else {
+    document.getElementById('mgr-ai').textContent = 'Aby włączyć podsumowanie AI, dodaj klucz Anthropic API w zmiennej ANTHROPIC_KEY w pliku HTML.';
+  }
+}
+
+function printReport() {
+  const from = document.getElementById('k-from').value;
+  const to = document.getElementById('k-to').value;
+  const content = document.getElementById('k-content').innerHTML;
+  const ai = document.getElementById('mgr-ai')?.textContent || '';
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Raport ${from}–${to}</title>
+  <style>body{font-family:sans-serif;padding:2rem;font-size:12px;color:#111}h2{font-size:18px;margin-bottom:1rem}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f5f5f5}.ai{background:#f9f9f9;padding:1rem;margin-top:1rem;white-space:pre-wrap;font-size:12px;line-height:1.6}</style>
+  </head><body><h2>Raport kierownika: ${from} – ${to}</h2>${content}<div class="ai"><strong>Podsumowanie AI:</strong><br>${ai}</div></body></html>`);
+  w.document.close(); w.print();
+}
+
+// ── ANALIZA AI ──
+async function askAI() {
+  const q = document.getElementById('ai-q').value.trim();
+  if (!q) { toast('Wpisz pytanie'); return; }
+  const box = document.getElementById('ai-ans');
+  box.classList.remove('hide'); box.classList.add('loading');
+  box.textContent = 'AI analizuje dane...';
+  const rs = reports.slice(0,15).map(r=>`${r.machine}|${r.category}|${r.priority}|${r.status}|${r.desc?.slice(0,60)}`).join('\n');
+  const ns = notes.slice(0,10).map(n=>`${n.worker}|${n.title}|${n.body?.slice(0,60)}`).join('\n');
+  box.textContent = await callAI(`Zgłoszenia:\n${rs||'brak'}\nNotatki:\n${ns||'brak'}\nPytanie: ${q}`);
+  box.classList.remove('loading');
+}
+
+// ── CLAUDE API ──
+async function callAI(prompt) {
+  if (!ANTHROPIC_KEY) return 'Aby używać analizy AI, dodaj klucz Anthropic API w zmiennej ANTHROPIC_KEY w pliku HTML.';
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: 'Jesteś ekspertem ds. utrzymania ruchu (CMMS). Odpowiadaj po polsku, zwięźle i praktycznie.',
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const d = await res.json();
+    return d.content?.map(c => c.text || '').join('\n') || 'Błąd odpowiedzi AI.';
+  } catch(e) { return 'Błąd połączenia z AI: ' + e.message; }
+}
+
+// ── UTILS ──
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+function fmtDay(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('pl-PL', { weekday:'short', day:'2-digit', month:'2-digit' });
+}
+function initials(name) {
+  return (name||'?').split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+}
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Enter na logowaniu
+document.getElementById('pass-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('email-input').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('pass-input').focus(); });
+</script>
+</body>
+</html>
